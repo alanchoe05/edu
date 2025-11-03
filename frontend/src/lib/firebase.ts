@@ -1,5 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp, type FirebaseOptions } from 'firebase/app'
 import { getAnalytics, isSupported } from 'firebase/analytics'
+import { getAuth } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
 
 const ensureEnv = (key: keyof ImportMetaEnv) => {
   const value = import.meta.env[key]
@@ -26,3 +28,7 @@ export const firebaseApp: FirebaseApp = apps.length ? apps[0] : initializeApp(fi
 export const firebaseAnalytics = isSupported().then((supported) =>
   supported ? getAnalytics(firebaseApp) : null,
 )
+
+export const auth = getAuth(firebaseApp)
+
+export const db = getFirestore(firebaseApp)

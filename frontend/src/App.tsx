@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom'
 import About from './routes/About'
 import Home from './routes/Home'
 import NotFound from './routes/NotFound'
+import SignUp from './routes/SignUp'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -26,6 +27,9 @@ function App() {
             <NavLink to="/about" className={navLinkClass}>
               About
             </NavLink>
+            <NavLink to="/signup" className={navLinkClass}>
+              Sign Up
+            </NavLink>
           </nav>
         </div>
       </header>
@@ -34,6 +38,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
+          <Route path="/signup" element={<SignUp />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
