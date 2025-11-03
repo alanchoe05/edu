@@ -3,25 +3,28 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { auth, db } from '../lib/firebase'
 import type { UserRole } from '../types/user'
+import { getDashboardPath } from '../utils/roles'
 
 const roleOptions: Array<{ value: UserRole; label: string; hint: string }> = [
-  { value: 'student', label: 'Student', hint: 'Learner access to course content.' },
-  { value: 'teacher', label: 'Teacher', hint: 'Manage classes and assignments.' },
-  { value: 'admin', label: 'Admin', hint: 'Full access to administrative tools.' },
+  { value: 'student', label: 'Student', hint: 'Learn new material and complete coursework.' },
+  { value: 'teacher', label: 'Teacher', hint: 'Manage classes, assignments, and student progress.' },
+  { value: 'admin', label: 'Admin', hint: 'Oversee users, content, and platform configuration.' },
 ]
 
 const mapFirebaseError = (error: FirebaseError) => {
   switch (error.code) {
     case 'auth/email-already-in-use':
-      return '?? ?? ?? ??????.'
+      return 'This email is already in use.'
     case 'auth/invalid-email':
-      return '???? ?? ??? ?????.'
+      return 'Please provide a valid email address.'
     case 'auth/weak-password':
-      return '????? ?? 6? ????? ???.'
+      return 'Password must be at least 6 characters long.'
     default:
-      return '???? ?? ? ??? ??????. ?? ? ?? ??????.'
+      return 'We could not create your account right now. Please try again later.'
   }
 }
 
@@ -32,15 +35,15 @@ function SignUp() {
   const [role, setRole] = useState<UserRole>('student')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const { refreshProfile, profile } = useAuth()
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
-    setSuccess(null)
 
     if (!name.trim()) {
-      setError('??? ??????.')
+      setError('Please enter your name.')
       return
     }
 
@@ -57,51 +60,53 @@ function SignUp() {
         createdAt: serverTimestamp(),
       })
 
-      setSuccess('????? ???????. ??? ? ???? ??????.')
-      setName('')
-      setEmail('')
-      setPassword('')
-      setRole('student')
+      await refreshProfile()
+      navigate(getDashboardPath(role), { replace: true })
     } catch (err) {
       if (err instanceof FirebaseError) {
         setError(mapFirebaseError(err))
       } else if (err instanceof Error) {
         setError(err.message)
       } else {
-        setError('? ? ?? ??? ??????.')
+        setError('Unexpected error. Please try again.')
       }
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (profile) {
+    return <Navigate to={getDashboardPath(profile.role)} replace />
+  }
+
   return (
     <section className="mx-auto w-full max-w-2xl">
       <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">????</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Create account</h1>
         <p className="mt-2 text-sm text-slate-600">
-          ??? ???? ??? ???? Firestore? <code>users</code> ???? ???? ?????.
+          Choose a role during sign-up so your details can be added to the Firestore <code>users</code>{' '}
+          collection.
         </p>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-8 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="grid gap-6 md:grid-cols-2">
           <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-slate-700">??</span>
+            <span className="text-sm font-medium text-slate-700">Full name</span>
             <input
               type="text"
               name="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-600 transition focus:border-slate-400 focus:ring-2"
-              placeholder="???"
+              placeholder="Alex Johnson"
               autoComplete="name"
               required
             />
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-slate-700">???</span>
+            <span className="text-sm font-medium text-slate-700">Email</span>
             <input
               type="email"
               name="email"
@@ -115,14 +120,14 @@ function SignUp() {
           </label>
 
           <label className="flex flex-col gap-2 md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">????</span>
+            <span className="text-sm font-medium text-slate-700">Password</span>
             <input
               type="password"
               name="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-slate-600 transition focus:border-slate-400 focus:ring-2"
-              placeholder="?? 6?"
+              placeholder="At least 6 characters"
               autoComplete="new-password"
               minLength={6}
               required
@@ -131,7 +136,7 @@ function SignUp() {
         </div>
 
         <fieldset className="space-y-4">
-          <legend className="text-sm font-medium text-slate-700">?? ??</legend>
+          <legend className="text-sm font-medium text-slate-700">Choose a role</legend>
           <div className="grid gap-4 lg:grid-cols-3">
             {roleOptions.map((option) => (
               <label
@@ -160,7 +165,6 @@ function SignUp() {
         </fieldset>
 
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        {success ? <p className="text-sm text-emerald-600">{success}</p> : null}
 
         <div className="flex justify-end">
           <button
@@ -168,14 +172,22 @@ function SignUp() {
             className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             disabled={isLoading}
           >
-            {isLoading ? '?? ?...' : '????' }
+            {isLoading ? 'Creating account...' : 'Create account'}
           </button>
         </div>
       </form>
 
-      <p className="mt-6 text-xs text-slate-500">
-        ??? ???? Firestore? <code>users</code> ???? <code>uid</code>, <code>email</code>,
-        <code>name</code>, <code>role</code>, <code>createdAt</code> ??? ?????.
+      <div className="mt-6 text-center text-sm text-slate-600">
+        Already have an account?{' '}
+        <Link to="/login" className="font-medium text-slate-900 underline-offset-4 hover:underline">
+          Log in
+        </Link>
+      </div>
+
+      <p className="mt-4 text-xs text-slate-500">
+        On success, a document containing <code>uid</code>, <code>email</code>, <code>name</code>,
+        <code>role</code>, and <code>createdAt</code> is saved to the Firestore <code>users</code>
+        collection.
       </p>
     </section>
   )
